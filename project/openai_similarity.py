@@ -51,11 +51,9 @@ def generate_summary(candidate, job):
 
 def get_similarity_scores(candidates, job):
     job_text = f"Job Title: {job['title']}\nJob Description: {job['description']}\nRequired Skills: {job['requiredSkills']}"
-    print("\n\njobtext", job_text)
     scores = []
     for candidate in candidates:
         candidate_text = f"Name: {candidate['fullName']}\nSkills: {', '.join(candidate['skills'])}\nExperience: {', '.join([exp['jobTitle'] for exp in candidate['experience']])}\nPreferred Location: {candidate['preferredLocation']}\nPreferred Job Type: {candidate['preferredJobType']}"
-        print("\n\ncandidatetext", candidate_text)
         similarity = calculate_similarity(candidate_text, job_text)
 
         # Match skills
@@ -87,16 +85,14 @@ def get_candidates():
 
     # Retrieve all candidates
     candidates = list(collection.find())
-    print("candidates", candidates, type(candidates))
 
     return candidates
 
 
-def get_job_posting():
+def get_job_posting(job_id):
     collection = db["job_postings"]
 
-    job_posting = list(collection.find())[0]
-    print("job_posting", job_posting, type(job_posting))
+    job_posting = list(collection.find())
 
     return job_posting
 
@@ -238,8 +234,17 @@ job = {
 uri = "mongodb+srv://atharva:atharvarockx@cluster0.ggr6c.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
 # Create a new client and connect to the server
-client = MongoClient(uri, server_api=ServerApi("1"))
-db = client["alpfadb"]
+mongo_client = MongoClient(uri, server_api=ServerApi("1"))
+db = mongo_client["alpfadb"]
+
+cand = get_candidates()
+job = get_job_posting()
+
+# with open('candidates.json', 'w') as json_file:
+#     json.dump(cand, json_file, indent=4)  # indent=4 for pretty printing
+
+# with open('job.json', 'w') as json_file:
+#     json.dump(job, json_file, indent=4)  # indent=4 for pretty printing
 
 
 # Get similarity scores
@@ -248,7 +253,7 @@ similarity_scores = get_similarity_scores(get_candidates(), get_job_posting())
 # Print the results
 for score in similarity_scores:
     print(
-        f"Candidate: {score['candidateName']}, Similarity Score: {score['similarityScore']:.4f}"
+        f"Candidate: {score['candidateName']}, Similarity Score: {score['similarityScore']*100}"
     )
     print(f"Email: {score['email']}, Phone: {score['phone']}")
     print(f"Matched Skills: {', '.join(score['matchedSkills'])}")
