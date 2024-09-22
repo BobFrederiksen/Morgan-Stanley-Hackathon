@@ -1,21 +1,26 @@
 from openai import OpenAI
 import os
 
-# open_ai_access_key = os.environ.get("OPEN_AI_ACCESS_KEY")
+open_ai_access_key = os.environ.get("")
 import numpy as np
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
+
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
 
 # OpenAI API key setup
 load_dotenv()
-client = OpenAI(api_key= os.getenv("OPENAI_API_KEY"))
+client = OpenAI()
 
 
 # OpenAI API key setup
 
+
 def get_embedding(text):
     response = client.embeddings.create(input=text, model="text-embedding-ada-002")
     return response.data[0].embedding
+
 
 def calculate_similarity(candidate_text, job_text):
     candidate_embedding = get_embedding(candidate_text)
@@ -27,6 +32,7 @@ def calculate_similarity(candidate_text, job_text):
     similarity = cosine_similarity(candidate_embedding, job_embedding)[0][0]
     return similarity
 
+
 def generate_summary(candidate, job):
     summary_text = (
         f"Candidate Name: {candidate['fullName']}\n"
@@ -35,39 +41,65 @@ def generate_summary(candidate, job):
         f"Why this candidate is a good fit for the job '{job['title']}': {job['description']}"
     )
 
-    response = client.chat.completions.create(model="gpt-3.5-turbo",
-    messages=[
-        {"role": "user", "content": summary_text}
-    ],
-    max_tokens=100)
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": summary_text}],
+        max_tokens=100,
+    )
     return response.choices[0].message.content.strip()
+
 
 def get_similarity_scores(candidates, job):
     job_text = f"Job Title: {job['title']}\nJob Description: {job['description']}\nRequired Skills: {job['requiredSkills']}"
-
+    print("\n\njobtext", job_text)
     scores = []
     for candidate in candidates:
         candidate_text = f"Name: {candidate['fullName']}\nSkills: {', '.join(candidate['skills'])}\nExperience: {', '.join([exp['jobTitle'] for exp in candidate['experience']])}\nPreferred Location: {candidate['preferredLocation']}\nPreferred Job Type: {candidate['preferredJobType']}"
+        print("\n\ncandidatetext", candidate_text)
         similarity = calculate_similarity(candidate_text, job_text)
 
         # Match skills
-        matched_skills = set(candidate['skills']) & set(job['requiredSkills'].split(", "))
+        matched_skills = set(candidate["skills"]) & set(
+            job["requiredSkills"].split(", ")
+        )
 
         # Generate summary
         summary = generate_summary(candidate, job)
 
-        scores.append({
-            'candidateName': candidate['fullName'],
-            'similarityScore': similarity,
-            'matchedSkills': list(matched_skills),
-            'summary': summary,
-            'email': candidate['email'],
-            'phone': candidate['phone']
-        })
+        scores.append(
+            {
+                "candidateName": candidate["fullName"],
+                "similarityScore": similarity,
+                "matchedSkills": list(matched_skills),
+                "summary": summary,
+                "email": candidate["email"],
+                "phone": candidate["phone"],
+            }
+        )
 
-    scores = sorted(scores, key=lambda x: x['similarityScore'], reverse=True)
+    scores = sorted(scores, key=lambda x: x["similarityScore"], reverse=True)
 
     return scores
+
+
+def get_candidates():
+    collection = db["candidates"]
+
+    # Retrieve all candidates
+    candidates = list(collection.find())
+    print("candidates", candidates, type(candidates))
+
+    return candidates
+
+
+def get_job_posting():
+    collection = db["job_postings"]
+
+    job_posting = list(collection.find())[0]
+    print("job_posting", job_posting, type(job_posting))
+
+    return job_posting
+
 
 # Sample input data
 candidates = [
@@ -79,11 +111,21 @@ candidates = [
         "skills": ["JavaScript", "Node.js", "React", "AWS"],
         "areaInterested": "Web Development",
         "experience": [
-            {"jobTitle": "Full-Stack Developer", "company": "Web Solutions", "duration": "4 years", "description": "Developed and maintained web applications using React and Node.js."},
-            {"jobTitle": "Frontend Developer", "company": "Creative Apps", "duration": "1.5 years", "description": "Created user-friendly UI/UX for web applications."}
+            {
+                "jobTitle": "Full-Stack Developer",
+                "company": "Web Solutions",
+                "duration": "4 years",
+                "description": "Developed and maintained web applications using React and Node.js.",
+            },
+            {
+                "jobTitle": "Frontend Developer",
+                "company": "Creative Apps",
+                "duration": "1.5 years",
+                "description": "Created user-friendly UI/UX for web applications.",
+            },
         ],
         "preferredLocation": "Seattle, WA",
-        "preferredJobType": "Full-time"
+        "preferredJobType": "Full-time",
     },
     {
         "_id": {"$oid": "66ef6890248ec1a4c28db988"},
@@ -93,11 +135,21 @@ candidates = [
         "skills": ["Python", "Data Analysis", "Machine Learning"],
         "areaInterested": "Data Science",
         "experience": [
-            {"jobTitle": "Data Analyst", "company": "Data Insights", "duration": "3 years", "description": "Analyzed sales data to provide actionable insights."},
-            {"jobTitle": "Junior Data Scientist", "company": "Tech Innovations", "duration": "2 years", "description": "Developed predictive models using Python."}
+            {
+                "jobTitle": "Data Analyst",
+                "company": "Data Insights",
+                "duration": "3 years",
+                "description": "Analyzed sales data to provide actionable insights.",
+            },
+            {
+                "jobTitle": "Junior Data Scientist",
+                "company": "Tech Innovations",
+                "duration": "2 years",
+                "description": "Developed predictive models using Python.",
+            },
         ],
         "preferredLocation": "San Francisco, CA",
-        "preferredJobType": "Remote"
+        "preferredJobType": "Remote",
     },
     {
         "_id": {"$oid": "66ef6890248ec1a4c28db989"},
@@ -107,11 +159,21 @@ candidates = [
         "skills": ["Java", "Spring Boot", "Microservices"],
         "areaInterested": "Software Engineering",
         "experience": [
-            {"jobTitle": "Backend Developer", "company": "Cloud Solutions", "duration": "5 years", "description": "Built and maintained microservices for cloud applications."},
-            {"jobTitle": "Software Engineer", "company": "Web Tech", "duration": "2 years", "description": "Implemented RESTful APIs for web services."}
+            {
+                "jobTitle": "Backend Developer",
+                "company": "Cloud Solutions",
+                "duration": "5 years",
+                "description": "Built and maintained microservices for cloud applications.",
+            },
+            {
+                "jobTitle": "Software Engineer",
+                "company": "Web Tech",
+                "duration": "2 years",
+                "description": "Implemented RESTful APIs for web services.",
+            },
         ],
         "preferredLocation": "New York, NY",
-        "preferredJobType": "Full-time"
+        "preferredJobType": "Full-time",
     },
     {
         "_id": {"$oid": "66ef6890248ec1a4c28db990"},
@@ -121,11 +183,21 @@ candidates = [
         "skills": ["HTML", "CSS", "JavaScript", "React"],
         "areaInterested": "Web Development",
         "experience": [
-            {"jobTitle": "Frontend Developer", "company": "Design Studio", "duration": "3 years", "description": "Created responsive web designs using React."},
-            {"jobTitle": "Web Designer", "company": "Creative Solutions", "duration": "2 years", "description": "Designed user interfaces for various websites."}
+            {
+                "jobTitle": "Frontend Developer",
+                "company": "Design Studio",
+                "duration": "3 years",
+                "description": "Created responsive web designs using React.",
+            },
+            {
+                "jobTitle": "Web Designer",
+                "company": "Creative Solutions",
+                "duration": "2 years",
+                "description": "Designed user interfaces for various websites.",
+            },
         ],
         "preferredLocation": "Austin, TX",
-        "preferredJobType": "Part-time"
+        "preferredJobType": "Part-time",
     },
     {
         "_id": {"$oid": "66ef6890248ec1a4c28db991"},
@@ -135,12 +207,22 @@ candidates = [
         "skills": ["C++", "Embedded Systems", "IoT"],
         "areaInterested": "Embedded Systems",
         "experience": [
-            {"jobTitle": "Embedded Systems Engineer", "company": "Tech Gadgets", "duration": "4 years", "description": "Designed embedded systems for smart devices."},
-            {"jobTitle": "Junior Software Engineer", "company": "Innovation Labs", "duration": "1 year", "description": "Worked on firmware development for IoT devices."}
+            {
+                "jobTitle": "Embedded Systems Engineer",
+                "company": "Tech Gadgets",
+                "duration": "4 years",
+                "description": "Designed embedded systems for smart devices.",
+            },
+            {
+                "jobTitle": "Junior Software Engineer",
+                "company": "Innovation Labs",
+                "duration": "1 year",
+                "description": "Worked on firmware development for IoT devices.",
+            },
         ],
         "preferredLocation": "Chicago, IL",
-        "preferredJobType": "Full-time"
-    }
+        "preferredJobType": "Full-time",
+    },
     # Additional candidates can be added here...
 ]
 
@@ -148,15 +230,26 @@ job = {
     "_id": {"$oid": "66ef6a5e248ec1a4c28db990"},
     "title": "Data Analyst",
     "description": "Analyze large datasets, create reports, and help the business make data-driven decisions.",
-    "requiredSkills": "SQL, Python, PowerBI, Excel, Java, C, AWS, Node.js"
+    "requiredSkills": "SQL, Python, PowerBI, Excel, Java, C, AWS, Node.js",
 }
 
+
+# MongoDB URI and server API version
+uri = "mongodb+srv://atharva:atharvarockx@cluster0.ggr6c.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+
+# Create a new client and connect to the server
+client = MongoClient(uri, server_api=ServerApi("1"))
+db = client["alpfadb"]
+
+
 # Get similarity scores
-similarity_scores = get_similarity_scores(candidates, job)
+similarity_scores = get_similarity_scores(get_candidates(), get_job_posting())
 
 # Print the results
 for score in similarity_scores:
-    print(f"Candidate: {score['candidateName']}, Similarity Score: {score['similarityScore']:.4f}")
+    print(
+        f"Candidate: {score['candidateName']}, Similarity Score: {score['similarityScore']:.4f}"
+    )
     print(f"Email: {score['email']}, Phone: {score['phone']}")
     print(f"Matched Skills: {', '.join(score['matchedSkills'])}")
     print(f"Summary: {score['summary']}\n")
