@@ -1,17 +1,13 @@
 from openai import OpenAI
 import os
-
-open_ai_access_key = os.environ.get("")
 import numpy as np
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
+from bson import ObjectId
 
 from sklearn.metrics.pairwise import cosine_similarity
-from dotenv import load_dotenv
 
-# OpenAI API key setup
-load_dotenv()
-client = OpenAI()
+open_ai_access_key = os.environ.get("")
 
 
 # OpenAI API key setup
@@ -67,7 +63,7 @@ def get_similarity_scores(candidates, job):
         scores.append(
             {
                 "candidateName": candidate["fullName"],
-                "similarityScore": similarity,
+                "similarityScore": similarity * 100,
                 "matchedSkills": list(matched_skills),
                 "summary": summary,
                 "email": candidate["email"],
@@ -80,7 +76,7 @@ def get_similarity_scores(candidates, job):
     return scores
 
 
-def get_candidates():
+def get_candidates(db):
     collection = db["candidates"]
 
     # Retrieve all candidates
@@ -89,172 +85,32 @@ def get_candidates():
     return candidates
 
 
-def get_job_posting(job_id):
+def get_job_posting(db, job_id, sponsor_id):
     collection = db["job_postings"]
 
-    job_posting = list(collection.find())
+    job_posting = collection.find_one(
+        {"jobId": str(job_id), "sponsorId": str(sponsor_id)}
+    )
+    print(job_posting)
 
     return job_posting
 
 
-# Sample input data
-candidates = [
-    {
-        "_id": {"$oid": "66ef6890248ec1a4c28db987"},
-        "fullName": "Michael Clark",
-        "email": "michaelclark@example.com",
-        "phone": "+1234567892",
-        "skills": ["JavaScript", "Node.js", "React", "AWS"],
-        "areaInterested": "Web Development",
-        "experience": [
-            {
-                "jobTitle": "Full-Stack Developer",
-                "company": "Web Solutions",
-                "duration": "4 years",
-                "description": "Developed and maintained web applications using React and Node.js.",
-            },
-            {
-                "jobTitle": "Frontend Developer",
-                "company": "Creative Apps",
-                "duration": "1.5 years",
-                "description": "Created user-friendly UI/UX for web applications.",
-            },
-        ],
-        "preferredLocation": "Seattle, WA",
-        "preferredJobType": "Full-time",
-    },
-    {
-        "_id": {"$oid": "66ef6890248ec1a4c28db988"},
-        "fullName": "Sara Thompson",
-        "email": "sarathompson@example.com",
-        "phone": "+1234567893",
-        "skills": ["Python", "Data Analysis", "Machine Learning"],
-        "areaInterested": "Data Science",
-        "experience": [
-            {
-                "jobTitle": "Data Analyst",
-                "company": "Data Insights",
-                "duration": "3 years",
-                "description": "Analyzed sales data to provide actionable insights.",
-            },
-            {
-                "jobTitle": "Junior Data Scientist",
-                "company": "Tech Innovations",
-                "duration": "2 years",
-                "description": "Developed predictive models using Python.",
-            },
-        ],
-        "preferredLocation": "San Francisco, CA",
-        "preferredJobType": "Remote",
-    },
-    {
-        "_id": {"$oid": "66ef6890248ec1a4c28db989"},
-        "fullName": "John Doe",
-        "email": "johndoe@example.com",
-        "phone": "+1234567894",
-        "skills": ["Java", "Spring Boot", "Microservices"],
-        "areaInterested": "Software Engineering",
-        "experience": [
-            {
-                "jobTitle": "Backend Developer",
-                "company": "Cloud Solutions",
-                "duration": "5 years",
-                "description": "Built and maintained microservices for cloud applications.",
-            },
-            {
-                "jobTitle": "Software Engineer",
-                "company": "Web Tech",
-                "duration": "2 years",
-                "description": "Implemented RESTful APIs for web services.",
-            },
-        ],
-        "preferredLocation": "New York, NY",
-        "preferredJobType": "Full-time",
-    },
-    {
-        "_id": {"$oid": "66ef6890248ec1a4c28db990"},
-        "fullName": "Emily Davis",
-        "email": "emilydavis@example.com",
-        "phone": "+1234567895",
-        "skills": ["HTML", "CSS", "JavaScript", "React"],
-        "areaInterested": "Web Development",
-        "experience": [
-            {
-                "jobTitle": "Frontend Developer",
-                "company": "Design Studio",
-                "duration": "3 years",
-                "description": "Created responsive web designs using React.",
-            },
-            {
-                "jobTitle": "Web Designer",
-                "company": "Creative Solutions",
-                "duration": "2 years",
-                "description": "Designed user interfaces for various websites.",
-            },
-        ],
-        "preferredLocation": "Austin, TX",
-        "preferredJobType": "Part-time",
-    },
-    {
-        "_id": {"$oid": "66ef6890248ec1a4c28db991"},
-        "fullName": "Robert Brown",
-        "email": "robertbrown@example.com",
-        "phone": "+1234567896",
-        "skills": ["C++", "Embedded Systems", "IoT"],
-        "areaInterested": "Embedded Systems",
-        "experience": [
-            {
-                "jobTitle": "Embedded Systems Engineer",
-                "company": "Tech Gadgets",
-                "duration": "4 years",
-                "description": "Designed embedded systems for smart devices.",
-            },
-            {
-                "jobTitle": "Junior Software Engineer",
-                "company": "Innovation Labs",
-                "duration": "1 year",
-                "description": "Worked on firmware development for IoT devices.",
-            },
-        ],
-        "preferredLocation": "Chicago, IL",
-        "preferredJobType": "Full-time",
-    },
-    # Additional candidates can be added here...
-]
+def get_all_job_postings(db, sponsor_id):
+    collection = db["job_postings"]
 
-job = {
-    "_id": {"$oid": "66ef6a5e248ec1a4c28db990"},
-    "title": "Data Analyst",
-    "description": "Analyze large datasets, create reports, and help the business make data-driven decisions.",
-    "requiredSkills": "SQL, Python, PowerBI, Excel, Java, C, AWS, Node.js",
-}
+    job_postings = list(collection.find({}, {"_id": 0}))
+    # job_postings = {i: x for i, x in enumerate(job_postings)}
+    print(job_postings)
+
+    return job_postings
 
 
-# MongoDB URI and server API version
-uri = "mongodb+srv://atharva:atharvarockx@cluster0.ggr6c.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-
-# Create a new client and connect to the server
-mongo_client = MongoClient(uri, server_api=ServerApi("1"))
-db = mongo_client["alpfadb"]
-
-cand = get_candidates()
-job = get_job_posting()
-
-# with open('candidates.json', 'w') as json_file:
-#     json.dump(cand, json_file, indent=4)  # indent=4 for pretty printing
-
-# with open('job.json', 'w') as json_file:
-#     json.dump(job, json_file, indent=4)  # indent=4 for pretty printing
-
-
-# Get similarity scores
-similarity_scores = get_similarity_scores(get_candidates(), get_job_posting())
-
-# Print the results
-for score in similarity_scores:
-    print(
-        f"Candidate: {score['candidateName']}, Similarity Score: {score['similarityScore']*100}"
-    )
-    print(f"Email: {score['email']}, Phone: {score['phone']}")
-    print(f"Matched Skills: {', '.join(score['matchedSkills'])}")
-    print(f"Summary: {score['summary']}\n")
+# # Print the results
+# for score in similarity_scores:
+#     print(
+#         f"Candidate: {score['candidateName']}, Similarity Score: {score['similarityScore']*100}"
+#     )
+#     print(f"Email: {score['email']}, Phone: {score['phone']}")
+#     print(f"Matched Skills: {', '.join(score['matchedSkills'])}")
+#     print(f"Summary: {score['summary']}\n")
