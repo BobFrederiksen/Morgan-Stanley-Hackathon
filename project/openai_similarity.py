@@ -1,8 +1,14 @@
 from openai import OpenAI
+import os
 
-client = OpenAI(api_key='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')
+# open_ai_access_key = os.environ.get("OPEN_AI_ACCESS_KEY")
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from dotenv import load_dotenv
+
+# OpenAI API key setup
+load_dotenv()
+client = OpenAI(api_key= os.getenv("OPENAI_API_KEY"))
 
 # OpenAI API key setup
 
@@ -53,8 +59,12 @@ def get_similarity_scores(candidates, job):
             'candidateName': candidate['fullName'],
             'similarityScore': similarity,
             'matchedSkills': list(matched_skills),
-            'summary': summary
+            'summary': summary,
+            'email': candidate['email'],
+            'phone': candidate['phone']
         })
+
+    scores = sorted(scores, key=lambda x: x['similarityScore'], reverse=True)
 
     return scores
 
@@ -146,5 +156,6 @@ similarity_scores = get_similarity_scores(candidates, job)
 # Print the results
 for score in similarity_scores:
     print(f"Candidate: {score['candidateName']}, Similarity Score: {score['similarityScore']:.4f}")
+    print(f"Email: {score['email']}, Phone: {score['phone']}")
     print(f"Matched Skills: {', '.join(score['matchedSkills'])}")
     print(f"Summary: {score['summary']}\n")

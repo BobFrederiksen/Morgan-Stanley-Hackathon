@@ -1,10 +1,14 @@
 from openai import OpenAI
-
-client = OpenAI(api_key='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')
 import numpy as np
+import os
 from sklearn.metrics.pairwise import cosine_similarity
+from dotenv import load_dotenv
 
 # OpenAI API key setup
+load_dotenv()
+client = OpenAI(api_key= os.getenv("OPENAI_API_KEY"))
+
+
 
 def get_embedding(text):
     """
